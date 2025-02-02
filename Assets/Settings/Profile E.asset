@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6ba1ebbbcbb4feb4caeff7995d540697, type: 3}
+  m_Name: Profile E
+  m_EditorClassIdentifier: 
+  numStepsPerFrame: 2
+  agentCount: 250000
+  evaporationSpeed: 0.75
+  diffusionSpeed: 5
+  spawnMode: 1
+  color: {x: 0, y: 0, z: 0, w: 0}
+  species:
+  - speed: 30
+    sensorDistance: 20
+    sensorAngle: 112
+    sensorRadius: 1
+    turningSpeed: 20
+    speciesMask: {x: 2, y: -2, z: -2}
+    color: {x: 0, y: 1, z: 0.1176471, w: 0}
+  - speed: 40
+    sensorDistance: 20
+    sensorAngle: 112
+    sensorRadius: 1
+    turningSpeed: 30
+    speciesMask: {x: -2, y: 2, z: -2}
+    color: {x: 0.1058824, y: 0.6235294, z: 0.8313726, w: 0}
+  - speed: 60
+    sensorDistance: 10
+    sensorAngle: 140
+    sensorRadius: 2
+    turningSpeed: 40
+    speciesMask: {x: -2, y: -2, z: 2}
+    color: {x: 1, y: 1, z: 1, w: 0}

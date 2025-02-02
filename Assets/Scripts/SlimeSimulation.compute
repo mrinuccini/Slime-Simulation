@@ -1,0 +1,162 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+#pragma kernel TrailMain
+#pragma kernel ColorMain
+
+struct Agent
+{
+    float2 position;
+    float direction;
+    int specieIndex;
+};
+
+struct Specie
+{
+    float speed;
+    float sensorDistance;
+    float sensorAngle;
+    float sensorRadius;
+    float turningSpeed;
+    int3 specieMask;
+    float4 color;
+};
+
+uint2 resolution;
+
+float deltaTime;
+float elapsedTime;
+float evaporationSpeed;
+float diffusionSpeed;
+float4 color;
+RWTexture2D<float4> TrailMap;
+RWTexture2D<float4> ColorMap;
+RWStructuredBuffer<Agent> Agents;
+RWStructuredBuffer<Specie> Species;
+
+uint hash(uint state)
+{
+    state ^= 2747636419u;
+    state *= 2654435769u;
+    state ^= state >> 16;
+    state *= 2654435769u;
+    state ^= state >> 16;
+    state *= 2654435769u;
+    return state;
+}
+
+float scaleToRange01(uint state)
+{
+    return (float)state / 4294967295.0f;
+}
+
+float Sense(float offsetAngle, Agent agent, Specie specie)
+{
+    float2 sensorPos = agent.position + float2(cos(agent.direction + offsetAngle), sin(agent.direction + offsetAngle)) * specie.sensorDistance;
+
+    float sum = 0.f;
+    
+    for(int x = sensorPos.x - specie.sensorRadius; x <= sensorPos.x + specie.sensorRadius; x++)
+    {
+        for(int y = sensorPos.y - specie.sensorRadius; y <= sensorPos.y + specie.sensorRadius; y++)
+        {
+            sum += (TrailMap[int2(x, y)].x * specie.specieMask.x + TrailMap[int2(x, y)].y * specie.specieMask.y + TrailMap[int2(x, y)].z * specie.specieMask.z) / 3.0f;
+        }
+    }
+
+    float numSamples = specie.sensorRadius * specie.sensorRadius;
+    
+    return sum / numSamples;
+}
+
+[numthreads(100,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    // TODO: insert actual code here!
+    Agent agent = Agents[id.x];
+    Specie specie = Species[agent.specieIndex];
+
+    TrailMap[int2(agent.position)] = float4(specie.specieMask.x, specie.specieMask.y, specie.specieMask.z, 0);
+    ColorMap[int2(agent.position)] = specie.color;
+    uint random = hash(agent.position.y * resolution.x + (uint)agent.position.x + hash(id.x * elapsedTime * 1000000));
+    
+    if(agent.position.y <= 0  || agent.position.y >= resolution.y ||  agent.position.x <= 0 || agent.position.x >= resolution.x)
+    {
+        float randomAngle = scaleToRange01(hash(random)) * 2 * 3.1415;
+
+        agent.position = float2(min(resolution.x - 1, max(0, agent.position.x)), min(resolution.y - 1, max(0, agent.position.y)));
+        agent.direction = randomAngle;
+    }
+
+    float forward = Sense(0, agent, specie);
+    float left = Sense(specie.sensorAngle, agent, specie);
+    float right = Sense(-specie.sensorAngle, agent, specie);
+    float randomTurnStrength = scaleToRange01(hash(random));
+
+    if(forward == left && forward == right)
+    {
+        
+    }else if (forward > left && forward > right)
+    {
+        
+    }
+    else if (left > forward && left > right)
+    {
+        agent.direction = agent.direction + randomTurnStrength  * specie.turningSpeed * 2 * 3.1415 * deltaTime;
+    }
+    else
+    {
+        agent.direction = agent.direction - randomTurnStrength * specie.turningSpeed * 2 * 3.1415 * deltaTime;
+    }
+    
+    float yMov = specie.speed * sin(agent.direction) * deltaTime;
+    float xMov = specie.speed * cos(agent.direction) * deltaTime;
+    float2 mov = float2(xMov, yMov);
+    
+    agent.position += mov;
+    
+    Agents[id.x] = agent;
+}
+
+[numthreads(10,10,1)]
+void TrailMain (uint3 id : SV_DispatchThreadID)
+{
+    float4 currentColor = TrailMap[id.xy];
+    
+    float4 sum = float4(0, 0, 0, 0);
+
+    for(uint x = max(id.x - 1, 0u); x <= min(id.x + 1, resolution.x); x++)
+    {
+        for (uint y = max(id.y - 1, 0u); y <= min(id.y + 1, resolution.y); y++)
+        {
+            sum += TrailMap[int2(x, y)];
+        }
+    }
+
+    float4 averageColor = sum / 9.f;
+    float4 blendedColor = lerp(currentColor, averageColor, diffusionSpeed * deltaTime);
+    float4 evaporatedColor = max(0, blendedColor - evaporationSpeed * deltaTime);
+    
+    TrailMap[id.xy] = evaporatedColor;
+}
+
+[numthreads(10,10,1)]
+void ColorMain (uint3 id : SV_DispatchThreadID)
+{
+    float4 currentColor = ColorMap[id.xy];
+    
+    float4 sum = float4(0, 0, 0, 0);
+
+    for(uint x = max(id.x - 1, 0u); x <= min(id.x + 1, resolution.x); x++)
+    {
+        for (uint y = max(id.y - 1, 0u); y <= min(id.y + 1, resolution.y); y++)
+        {
+            sum += ColorMap[int2(x, y)];
+        }
+    }
+
+    float4 averageColor = sum / 9.f;
+    float4 blendedColor = lerp(currentColor, averageColor, diffusionSpeed * deltaTime);
+    float4 evaporatedColor = max(0, blendedColor - evaporationSpeed * deltaTime);
+    
+    ColorMap[id.xy] = evaporatedColor;
+}
