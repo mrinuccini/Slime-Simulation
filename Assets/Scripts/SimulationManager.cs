@@ -1,8 +1,8 @@
 using System;
-using System.Globalization;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
+using UnityEngine.InputSystem;
 using Random = UnityEngine.Random;
 
 public enum SpawnMode
@@ -13,6 +13,7 @@ public enum SpawnMode
     RandomInCircle
 }
 
+// ReSharper disable SpecifyACultureInStringConversionExplicitly
 public class SimulationManager : MonoBehaviour
 {
     private static readonly int TrailMap = Shader.PropertyToID("TrailMap");
@@ -26,6 +27,7 @@ public class SimulationManager : MonoBehaviour
     private static readonly int Color1 = Shader.PropertyToID("color");
     private static readonly int Species = Shader.PropertyToID("Species");
 
+    [SerializeField] private SimulationProfile[] profiles;
     [SerializeField] private ComputeShader simulationShader;
     [SerializeField] private RenderTexture trailMap;
     [SerializeField] private RenderTexture colorMap;
@@ -35,7 +37,8 @@ public class SimulationManager : MonoBehaviour
     [SerializeField] private Vector2Int simulationResolution = new(320, 240);
     
     private Agent[] m_agents;
-    private bool m_started = false;
+    private bool m_running;
+    private bool m_showUi = true;
 
     private void Start()
     {
@@ -44,7 +47,6 @@ public class SimulationManager : MonoBehaviour
         
         for (int i = 0; i < profile.agentCount; i++)
         {
-            Vector2 direction;
             Vector2 pos = new();
             float angle = 0f;
             
@@ -52,11 +54,11 @@ public class SimulationManager : MonoBehaviour
             {
                 case SpawnMode.Random:
                     pos = new Vector2(Random.Range(0, simulationResolution.x), Random.Range(0, simulationResolution.y));
-                    direction = new Vector2(Random.Range(0f, 1f), Random.Range(0f, 1f));
+                    var direction = new Vector2(Random.Range(0f, 1f), Random.Range(0f, 1f));
                     angle = Mathf.Atan2(direction.y, direction.x);
                     break;
                 case SpawnMode.InwardCircle:
-                    pos = center + Random.insideUnitCircle * simulationResolution.y * 0.5f;
+                    pos = center + Random.insideUnitCircle * (simulationResolution.y * 0.5f);
                     angle = Mathf.Atan2((center - pos).normalized.y, (center - pos).normalized.x);
                     break;
                 case SpawnMode.OutwardCircle:
@@ -75,7 +77,10 @@ public class SimulationManager : MonoBehaviour
 
     private void Update()
     {
-        if (!m_started) return;
+        if (Keyboard.current.spaceKey.wasPressedThisFrame)
+            m_showUi = !m_showUi;
+        
+        if (!m_running) return;
         
         Debug.Log($"Agent off screen : {m_agents.Count(x => x.position.x < 0 || x.position.x > simulationResolution.x || x.position.y < 0 || x.position.y > simulationResolution.y)}");
     }
@@ -87,7 +92,7 @@ public class SimulationManager : MonoBehaviour
 
     private void Simulation(RenderTexture destination)
     {
-        if (!m_started) return;
+        if (!m_running) return;
         
         if (trailMap == null)
         {
@@ -144,15 +149,18 @@ public class SimulationManager : MonoBehaviour
 
         Graphics.Blit(colorMap, destination);
     }
-
+    
     private void OnGUI()
     {
-        GUILayout.BeginArea(new Rect(0, 0, 300, 500), "Simulation Settings");
-        if (!m_started)
+        if (!m_showUi) return;
+        
+        GUILayout.BeginArea(new Rect(0, 0, 300, 1080), "Simulation Settings");
+        GUILayout.Label("Press space to hide this menu");
+        if (!m_running)
         {
             if (GUILayout.Button("Start"))
             {
-                m_started = true;
+                m_running = true;
             }
         }
         else
@@ -162,7 +170,24 @@ public class SimulationManager : MonoBehaviour
                 Start();
             }
         }
+        
+        GUILayout.Label("Simulation Profiles");
+        foreach (SimulationProfile simulationProfile in profiles)
+        {
+            if (GUILayout.Button(simulationProfile.name))
+            {
+                profile = simulationProfile;
+                trailMap = null;
+                colorMap = null;
+                Start();
+            }
+        }
 
+        return;
+
+        GUILayout.Space(15);
+        
+        GUILayout.Label("Edit Profile");
         GUILayout.BeginHorizontal();
         GUILayout.Label("Agent Count");
         profile.agentCount = int.Parse(GUILayout.TextField(profile.agentCount.ToString()));
@@ -175,35 +200,48 @@ public class SimulationManager : MonoBehaviour
         GUILayout.Label("Diffusion Speed");
         profile.diffusionSpeed = float.Parse(GUILayout.TextField(profile.diffusionSpeed.ToString()));
         GUILayout.EndHorizontal();
-        GUILayout.BeginHorizontal();
-        GUILayout.Label("Specie Speed");
-        profile.species[0].speed = float.Parse(GUILayout.TextField(profile.species[0].speed.ToString()));
-        GUILayout.EndHorizontal();
-        GUILayout.BeginHorizontal();
-        GUILayout.Label("Sensor Distance");
-        profile.species[0].sensorDistance = float.Parse(GUILayout.TextField(profile.species[0].sensorDistance.ToString()));
-        GUILayout.EndHorizontal();
-        GUILayout.BeginHorizontal();
-        GUILayout.Label("Sensor Angle");
-        profile.species[0].sensorAngle = float.Parse(GUILayout.TextField(profile.species[0].sensorAngle.ToString()));
-        GUILayout.EndHorizontal();
-        GUILayout.BeginHorizontal();
-        GUILayout.Label("Sensor radius");
-        profile.species[0].sensorRadius = float.Parse(GUILayout.TextField(profile.species[0].sensorRadius.ToString()));
-        GUILayout.EndHorizontal();
-        GUILayout.BeginHorizontal();
-        GUILayout.Label("Turning Speed");
-        profile.species[0].turningSpeed = float.Parse(GUILayout.TextField(profile.species[0].turningSpeed.ToString()));
-        GUILayout.EndHorizontal();
-        GUILayout.BeginHorizontal();
-        GUILayout.Label("R");
-        profile.species[0].color.x = float.Parse(GUILayout.TextField(profile.species[0].color.x.ToString()));
-        GUILayout.Label("G");
-        profile.species[0].color.y = float.Parse(GUILayout.TextField(profile.species[0].color.y.ToString()));
-        GUILayout.Label("B");
-        profile.species[0].color.z = float.Parse(GUILayout.TextField(profile.species[0].color.z.ToString()));
-        GUILayout.EndHorizontal();
+
+        GUILayout.Space(15);
         
+        for (int i = 0; i < profile.species.Length; i++) 
+        {
+            GUILayout.Label($"Specie n°{i + 1}");
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Specie Speed");
+            profile.species[i].speed = float.Parse(GUILayout.TextField(profile.species[i].speed.ToString()));
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Sensor Distance");
+            profile.species[i].sensorDistance =
+                float.Parse(GUILayout.TextField(profile.species[i].sensorDistance.ToString()));
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Sensor Angle");
+            profile.species[i].sensorAngle =
+                float.Parse(GUILayout.TextField(profile.species[i].sensorAngle.ToString()));
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Sensor radius");
+            profile.species[i].sensorRadius =
+                float.Parse(GUILayout.TextField(profile.species[i].sensorRadius.ToString()));
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Turning Speed");
+            profile.species[i].turningSpeed =
+                float.Parse(GUILayout.TextField(profile.species[i].turningSpeed.ToString()));
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("R");
+            profile.species[i].color.x = float.Parse(GUILayout.TextField(profile.species[i].color.x.ToString()));
+            GUILayout.Label("G");
+            profile.species[i].color.y = float.Parse(GUILayout.TextField(profile.species[i].color.y.ToString()));
+            GUILayout.Label("B");
+            profile.species[i].color.z = float.Parse(GUILayout.TextField(profile.species[i].color.z.ToString()));
+            GUILayout.EndHorizontal();
+            
+            GUILayout.Space(15);
+        }
+
         GUILayout.EndArea();
     }
 

@@ -224,10 +224,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 33dbc72c7278b0c4084cbe433c9c1918, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  profiles:
+  - {fileID: 11400000, guid: 782f9dfb03ec6b542a2e96b225636528, type: 2}
+  - {fileID: 11400000, guid: 160921683cce7bf48a18f78ea3c15663, type: 2}
+  - {fileID: 11400000, guid: f1880b30733aaf54fb52c4d07299b288, type: 2}
+  - {fileID: 11400000, guid: c1ccec90776b00d4e962378d21363375, type: 2}
+  - {fileID: 11400000, guid: 1207b8457c5831d48bca86ef2023ea75, type: 2}
   simulationShader: {fileID: 7200000, guid: a7ca3a7c2ad93a940872647b453c250e, type: 3}
   trailMap: {fileID: 0}
   colorMap: {fileID: 0}
-  profile: {fileID: 11400000, guid: 782f9dfb03ec6b542a2e96b225636528, type: 2}
+  profile: {fileID: 11400000, guid: 1207b8457c5831d48bca86ef2023ea75, type: 2}
   simulationResolution: {x: 1920, y: 1080}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
